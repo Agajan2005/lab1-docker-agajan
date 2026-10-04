@@ -1,0 +1,31 @@
+# ========== Стадия 1: builder ==========
+FROM python:3.12.1 AS builder
+
+# -- Медленные операции --
+
+# Установка системных зависимостей (для сборки wheel'ов)
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Сборка wheel'ов всех зависимостей в /app/wheels
+RUN --mount=type=bind,source=requirements.txt,target=/app/requirements.txt \
+    pip wheel --no-cache-dir -r /app/requirements.txt --wheel-dir /app/wheels
+
+# ========== Стадия 2: runtime ==========
+FROM python:3.12.1-slim
+
+# Копируем собранные wheel'ы из builder
+COPY --from=builder /app/wheels /wheels
+
+# Устанавливаем зависимости python, не пересобирая их
+RUN pip install --no-cache-dir /wheels/* \
+    && rm -rf /wheels
+
+# Копирование кода приложения
+COPY app.py /app/
+
+# Установка рабочей директории
+WORKDIR /app
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0"]

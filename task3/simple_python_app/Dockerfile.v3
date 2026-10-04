@@ -1,0 +1,21 @@
+FROM python
+
+# -- Медленные операции --
+
+# Установка системных зависимостей (в т.ч. для зависимостей python)
+RUN apt-get update \
+    && apt-get install -y gcc
+
+# Установка зависимостей python (requirements.txt доступен только на время установки)
+RUN --mount=type=bind,source=requirements.txt,target=/app/requirements.txt \
+    pip install -r /app/requirements.txt
+
+# -- Быстрые операции --
+
+# Копирование кода приложения
+COPY app.py /app/
+
+# Установка рабочей директории
+WORKDIR /app
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0"]

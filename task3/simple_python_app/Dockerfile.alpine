@@ -1,0 +1,33 @@
+# ========== Стадия 1: builder ==========
+FROM python:3.12.1-alpine AS builder
+
+# -- Медленные операции --
+
+# Установка системных зависимостей для сборки
+RUN apk update \
+    && apk add --no-cache gcc musl-dev postgresql-dev
+
+# Сборка wheel'ов в /app/wheels
+RUN --mount=type=bind,source=requirements.txt,target=/app/requirements.txt \
+    pip wheel --no-cache-dir -r /app/requirements.txt --wheel-dir /app/wheels
+
+# ========== Стадия 2: runtime ==========
+FROM python:3.12.1-alpine
+
+# Копируем wheel'ы из builder
+COPY --from=builder /app/wheels /wheels
+
+# libpq нужен для работы psycopg в рантайме
+RUN apk add --no-cache libpq
+
+# Устанавливаем зависимости python
+RUN pip install --no-cache-dir /wheels/* \
+    && rm -rf /wheels
+
+# Копирование кода приложения
+COPY app.py /app/
+
+# Установка рабочей директории
+WORKDIR /app
+
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0"]
